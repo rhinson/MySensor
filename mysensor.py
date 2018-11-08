@@ -1,9 +1,12 @@
 """ ... """
+import re
+
 from sensor import Sensor
 import json
 import os
 import time
 import requests
+from xml.etree import ElementTree
 from datetime import datetime
 
 
@@ -29,16 +32,26 @@ class MySensor(Sensor):
         return self.get_all()
 
     def get_all(self):
+        """ Request information on animals available for adoption """
         if self._request_allowed():
-            url = self.d['service_url']+self.d['service_method']+"?key=%s&count=%d&location=%s&animal=%s&age=%s&format=%s"
-            response = requests.get(url % (self.d['key'], self.d['return_count'], self.d['location'], self.d['animal'], self.d['age'], self.d['format']))
+            # Switch from general find to specific shelter
+            # General find wasn't limited to location
+            # url = self.d['service_url']+self.d['service_method']+"?key=%s&count=%d&location=%s&animal=%s&age=%s&format=%s"
+            # response = requests.get(url % (self.d['key'], self.d['return_count'], self.d['location'], self.d['animal'], self.d['age'], self.d['format']))
+
+            url = self.d['service_url']+self.d['service_method']+"?key=%s&count=%d&id=%s&format=%s"
+            response = requests.get(url % (self.d['key'], self.d['return_count'], self.d['shelter_id'], self.d['format']))
             self.d['times_used'] += 1
-            self._save_settings()  # Saves that I've made a request to the service
-            if response is not None and response.status_code == 20:
-                with open(MySensor.__SAVED_RECORDS, 'w') as backup:
-                    backup.write(response.text)
-                return [self._create_record(json.loads(response.text))]
-            else:
+            self._save_settings()  # Saves that a request has been made to the service
+            try:
+                response_json = json.loads(response.text)
+                if response is not None and response.status_code == 200:
+                    with open(MySensor.__SAVED_RECORDS, 'w') as backup:
+                        backup.write(response.text)
+                    return [self._create_record(response_json)]
+            except ValueError:
+                # The data we received from the response was not in JSON
+                # Something went wrong, so load the saved data
                 with open(MySensor.__SAVED_RECORDS) as saved_data:
                     response = saved_data.read()
                 return [self._create_record(json.loads(response))]
@@ -57,7 +70,9 @@ class MySensor(Sensor):
                     this_photo = d['petfinder']['pets']['pet'][pet]['media']['photos']['photo'][photo]['$t']
                     photo_list.append(this_photo)
             record[pet_id] = (d['petfinder']['pets']['pet'][pet]['name']['$t'],
+                              d['petfinder']['pets']['pet'][pet]['age']['$t'],
                               d['petfinder']['pets']['pet'][pet]['sex']['$t'],
+                              d['petfinder']['pets']['pet'][pet]['animal']['$t'],
                               d['petfinder']['pets']['pet'][pet]['lastUpdate']['$t'],
                               photo_list)
         return record

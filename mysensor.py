@@ -6,7 +6,6 @@ import json
 import os
 import time
 import requests
-from xml.etree import ElementTree
 from datetime import datetime
 
 
@@ -42,6 +41,7 @@ class MySensor(Sensor):
             url = self.d['service_url']+self.d['service_method']+"?key=%s&count=%d&id=%s&format=%s"
             response = requests.get(url % (self.d['key'], self.d['return_count'], self.d['shelter_id'], self.d['format']))
             self.d['times_used'] += 1
+            self.d['date'] = str(time.strftime("%m %d %y", time.gmtime()))
             self._save_settings()  # Saves that a request has been made to the service
             try:
                 response_json = json.loads(response.text)
@@ -55,6 +55,10 @@ class MySensor(Sensor):
                 with open(MySensor.__SAVED_RECORDS) as saved_data:
                     response = saved_data.read()
                 return [self._create_record(json.loads(response))]
+        else:
+            with open(MySensor.__SAVED_RECORDS) as saved_data:
+                response = saved_data.read()
+            return [self._create_record(json.loads(response))]
 
     @staticmethod
     def _create_record(d):
@@ -78,7 +82,18 @@ class MySensor(Sensor):
         return record
 
     def _request_allowed(self):
-        return int(self.d['times_used'] < self.d['request_delta'])
+        if self.d['times_used'] < self.d['request_delta']:
+            return True
+        else:
+            delta = datetime.now() - datetime.strptime(self.d['date'], "%m %d %y")
+            if delta.days < 1:
+                # print("Too soon, use Offline status")
+                return False
+            else:
+                self.d['times_used'] = 1
+                self.d['date'] = str(time.strftime("%m %d %y", time.gmtime()))
+                self._save_settings()  # Saves that a request has been made to the service
+                return True
 
     def _save_settings(self):
         with open(os.path.join(os.path.dirname(__file__), MySensor.__CONFIG_FILE), 'w') as outfile:

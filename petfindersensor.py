@@ -53,7 +53,7 @@ class PetFinderSensor(Sensor):
     def get_content(self, k):
         """ k doesn't matter.  Need to check if animal lastUpdated is greater than PetFinderSenor last_updated """
         newContent = []
-        time.sleep(10)  # Since the has_updates ran a get_all it updated the last_get_all time
+        time.sleep(11)  # Since the has_updates ran a get_all it updated the last_get_all time
         if self._request_allowed():
             content = self.get_all()
             for pet in content:
@@ -155,6 +155,8 @@ if __name__ == "__main__":
         print(pet)
 
     print("\n")
+
+    time.sleep(11) # Need to wait 10 seconds before getting an update
 
     if sr.has_updates(datetime.now()):
         json_doc = sr.get_content(datetime.now())

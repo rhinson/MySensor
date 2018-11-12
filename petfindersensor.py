@@ -37,32 +37,41 @@ class PetFinderSensor(Sensor):
             exit()
 
     def has_updates(self, k):
-        """ k doesn't matter.  Need to check if animal lastUpdated is greater than PatFinderSenor last_updated """
+        """ k doesn't matter.  Need to check if animal lastUpdated is greater than PetFinderSenor last_updated """
         update_available = 0
-        if not self._request_allowed():
+        if self._request_allowed():
             has_update = self.get_all()
-            for pet in has_update[0]:
-                if datetime.strptime(pet['pet_update'], "%Y-%m-%d"'T'"%H:%M:%S"'Z') > datetime.fromtimestamp(self.d['last_updated']):
+            for pet in has_update:
+                if datetime.strptime(pet['pet_update'], "%Y-%m-%d"'T'"%H:%M:%S"'Z') > datetime.fromtimestamp(self.d['last_has_update']):
                     update_available = 1
                     break
-            #fileTime = datetime.strptime(self.d['last_updated'], )
-            #diffTime = k - datetime.strptime("2018-11-08T22:41:24Z", "%Y-%m-%d"'T'"%H:%M:%S"'Z')
+            logging.info("Updates are available")
             return update_available
         else:
             return 0
 
     def get_content(self, k):
-        """ ignoring k for now .. just sending the whole thing """
-        return self.get_all()
+        """ k doesn't matter.  Need to check if animal lastUpdated is greater than PetFinderSenor last_updated """
+        newContent = []
+        time.sleep(10)  # Since the has_updates ran a get_all it updated the last_get_all time
+        if self._request_allowed():
+            content = self.get_all()
+            for pet in content:
+                if datetime.strptime(pet['pet_update'], "%Y-%m-%d"'T'"%H:%M:%S"'Z') > datetime.fromtimestamp(self.d['last_has_update']):
+                    newContent.append(pet)
+        self.d['last_has_update'] = int(time.time())
+        self._save_settings()  # Saves that a request has been made to the service
+        return newContent
 
     def get_all(self):
         """ Request information on all animals available for adoption """
         if self._request_allowed():
             url = self.d['service_url']+"%s?key=%s&count=%d&id=%s&format=%s"
-            response = requests.get(url % (self.d['service_method'], self.d['key'], self.d['return_count'], self.d['shelter_id'], self.d['format']))
-            self.d['times_used'] += 1
-            self.d['date'] = str(time.strftime("%m %d %y", time.gmtime()))
-            self.d['last_updated'] = int(time.time())
+            try:
+                response = requests.get(url % (self.d['service_method'], self.d['key'], self.d['return_count'], self.d['shelter_id'], self.d['format']))
+            except (requests.ConnectionError, requests.ConnectTimeout) as e:
+                logging.warning("HTTP Request failed for: " + str(e))
+            self.d['last_get_all'] = int(time.time())
             self._save_settings()  # Saves that a request has been made to the service
             logging.info("Settings saved in get_all")
             try:
@@ -73,7 +82,8 @@ class PetFinderSensor(Sensor):
                 # The data we received from the response was not in JSON
                 # Something went wrong, so load the saved data
                 logging.warning("The response from %s was not JSON" % (self.d['service_url']))
-                return self._read_saved_data()
+                response = self._read_saved_data()
+                return self._create_record(json.loads(response))
             if response is not None and response.status_code == 200:
                 try:
                     with open(PetFinderSensor.__SAVED_RECORDS, 'w') as backup:
@@ -82,13 +92,15 @@ class PetFinderSensor(Sensor):
                 except (Exception, OSError, ValueError) as e:
                     logging.warning("File response write failed: " + str(e))
                 finally:
-                    return [self._create_record(response_json)]
+                    return self._create_record(response_json)
             else:
                 logging.warning("The response was bad, using saved data")
-                return self._read_saved_data()
+                response = self._read_saved_data()
+                return self._create_record(json.loads(response))
         else:
             logging.warning("The request was not allowed, using saved data")
-            return self._read_saved_data()
+            response = self._read_saved_data()
+            return self._create_record(json.loads(response))
 
     @staticmethod
     def _create_record(d):
@@ -111,21 +123,9 @@ class PetFinderSensor(Sensor):
         return record
 
     def _request_allowed(self):
-        # This captured the real allowance of 10,000 times per day
+        # This use to capture the real allowance of 10,000 times per day
         # Simplified to new variation for easier grading  :)
-        # if self.d['times_used'] < self.d['request_delta']:
-        #     return True
-        # else:
-        #     delta = datetime.now() - datetime.strptime(self.d['date'], "%m %d %y")
-        #     if delta.days < 1:
-        #         # print("Too soon, use Offline status")
-        #         return False
-        #     else:
-        #         self.d['times_used'] = 1
-        #         self.d['date'] = str(time.strftime("%m %d %y", time.gmtime()))
-        #         self._save_settings()  # Saves that a request has been made to the service
-        #         return True
-        return not self.d['offline_mode'] and (int(time.time()) - self.d['last_updated']) > self.d['update_frequency']
+        return not self.d['offline_mode'] and (int(time.time()) - self.d['last_get_all']) > self.d['update_frequency']
 
     def _save_settings(self):
         with open(os.path.join(os.path.dirname(__file__), PetFinderSensor.__CONFIG_FILE), 'w') as outfile:
@@ -136,7 +136,7 @@ class PetFinderSensor(Sensor):
             with open(PetFinderSensor.__SAVED_RECORDS) as saved_data:
                 response = saved_data.read()
                 logging.info("Read response from saved file")
-            return [self._create_record(json.loads(response))]
+            return response
         except (Exception, OSError, ValueError) as e:
             logging.critical("Reading saved data error is: " + str(e))
             return None
@@ -146,9 +146,17 @@ if __name__ == "__main__":
     sr = PetFinderSensor()
     print("This is me : " + str(sr))
     print("let's go ..")
-    #json_doc = sr.get_all()
-    #print(json_doc)
+    json_doc = sr.get_all()
+    print(json_doc)
+
+    print("\n")
+
+    for pet in json_doc:
+        print(pet)
+
+    print("\n")
 
     if sr.has_updates(datetime.now()):
-        sr.get_content(datetime.now())
-
+        json_doc = sr.get_content(datetime.now())
+        for pet in json_doc:
+            print(pet)

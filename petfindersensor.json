@@ -1,15 +1,1 @@
-{
-  "key": "297c25918c0979954d4be253f3af2666",
-  "service_url": "https://api.petfinder.com/",
-  "service_method": "shelter.getPets",
-  "return_count": 50,
-  "location": "92020",
-  "shelter_id": "CA141",
-  "format": "json",
-  "offline_mode": true,
-  "update_frequency": 10,
-  "last_updated": 1541981808,
-  "request_delta": 10000,
-  "times_used": 112,
-  "date": "11 12 18"
-}
+{"key": "297c25918c0979954d4be253f3af2666", "service_url": "https://api.petfinder.com/", "service_method": "shelter.getPets", "return_count": 50, "location": "92020", "shelter_id": "CA141", "format": "json", "offline_mode": false, "update_frequency": 10, "last_get_all": 1541990290, "last_has_update": 1541989972}

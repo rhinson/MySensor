@@ -1,4 +1,7 @@
-""" ... """
+"""
+A Sensor to retrieve a list of animals available for adoption at
+the El Cajon Animal Shelter using the PetFinder API
+"""
 
 __version__ = "1.0"
 __author__ = "Roger Hinson"
@@ -37,7 +40,11 @@ class PetFinderSensor(Sensor):
             exit()
 
     def has_updates(self, k):
-        """ k doesn't matter.  Need to check if animal lastUpdated is greater than PetFinderSenor last_updated """
+        """
+        k doesn't matter.  Need to check if animal lastUpdated is greater than PetFinderSensor last_has_update
+
+        Returns value of 1 if any animals found with newer date than last check for updates
+        """
         update_available = 0
         if self._request_allowed():
             has_update = self.get_all()
@@ -51,11 +58,15 @@ class PetFinderSensor(Sensor):
             return 0
 
     def get_content(self, k):
-        """ k doesn't matter.  Need to check if animal lastUpdated is greater than PetFinderSenor last_updated """
+        """
+        k doesn't matter.  Need to check if animal lastUpdated is greater than PetFinderSensor last_has_update
+
+        Returns a list of dictionaries for each updated pet
+        """
         newContent = []
         time.sleep(11)  # Since the has_updates ran a get_all it updated the last_get_all time
         if self._request_allowed():
-            content = self.get_all()
+            content = self.get_all()  # Returns all pets with only the data we're looking for
             for pet in content:
                 if datetime.strptime(pet['pet_update'], "%Y-%m-%d"'T'"%H:%M:%S"'Z') > datetime.fromtimestamp(self.d['last_has_update']):
                     newContent.append(pet)
@@ -104,7 +115,7 @@ class PetFinderSensor(Sensor):
 
     @staticmethod
     def _create_record(d):
-        """ Request a list of dictionaries with details about each pet available from the shelter """
+        """ Create a list of dictionaries with details about each pet available from the shelter """
         record = []
         for pet in range(len(d['petfinder']['pets']['pet'])):
             for photo in range(len(d['petfinder']['pets']['pet'][pet]['media']['photos']['photo'])):
@@ -117,7 +128,7 @@ class PetFinderSensor(Sensor):
                            'pet_sex': d['petfinder']['pets']['pet'][pet]['sex']['$t'],
                            'pet_type': d['petfinder']['pets']['pet'][pet]['animal']['$t'],
                            'pet_update': d['petfinder']['pets']['pet'][pet]['lastUpdate']['$t'],
-                           'pet_desciption': d['petfinder']['pets']['pet'][pet]['description']['$t'],
+                           'pet_description': d['petfinder']['pets']['pet'][pet]['description']['$t'],
                            'pet_photo': use_this_photo
                            })
         return record
@@ -128,10 +139,15 @@ class PetFinderSensor(Sensor):
         return not self.d['offline_mode'] and (int(time.time()) - self.d['last_get_all']) > self.d['update_frequency']
 
     def _save_settings(self):
-        with open(os.path.join(os.path.dirname(__file__), PetFinderSensor.__CONFIG_FILE), 'w') as outfile:
-            json.dump(self.d, outfile)
+        # Save JSON settings to config file
+        try:
+            with open(os.path.join(os.path.dirname(__file__), PetFinderSensor.__CONFIG_FILE), 'w') as outfile:
+                json.dump(self.d, outfile)
+        except (Exception, OSError, ValueError) as e:
+            logging.warning("Unable to save JSON settings : " + str(e))
 
     def _read_saved_data(self):
+        # Read saved reponse.text data from saved file in case URL can't be accessed
         try:
             with open(PetFinderSensor.__SAVED_RECORDS) as saved_data:
                 response = saved_data.read()
@@ -154,9 +170,9 @@ if __name__ == "__main__":
     for pet in json_doc:
         print(pet)
 
-    print("\n")
+    print("\nChecking for Pet Updates\n")
 
-    time.sleep(11) # Need to wait 10 seconds before getting an update
+    time.sleep(11)  # Need to wait 10 seconds before getting an update
 
     if sr.has_updates(datetime.now()):
         json_doc = sr.get_content(datetime.now())

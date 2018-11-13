@@ -13,18 +13,30 @@ import os
 import time
 import requests
 import logging
+import errno
 from datetime import datetime
 
 
 class PetFinderSensor(Sensor):
-    logging.basicConfig(
-        level=logging.INFO,
-        filename=os.path.join(os.getcwd(), 'logs', 'petfinder.log'),
-        filemode='a',
-        format='%(asctime)s - %(lineno)d - %(levelname)s - %(message)s')
 
+    __LOG_DIRECTORY = 'petfinderlog'
+    __LOG_FILENAME = 'petfinder.log'
     __CONFIG_FILE = 'petfindersensor.json'
     __SAVED_RECORDS = 'petfinder_saved_records.json'
+
+    # Create the logs directory if it doesn't already exist
+    try:
+        os.makedirs(os.path.join(os.getcwd(), __LOG_DIRECTORY))
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            print("Error is: " + str(e))
+
+    # Create standard logging entries
+    logging.basicConfig(
+        level=logging.INFO,
+        filename=os.path.join(os.getcwd(), __LOG_DIRECTORY, __LOG_FILENAME),
+        filemode='a',
+        format='%(asctime)s - %(lineno)d - %(levelname)s - %(message)s')
 
     logging.info("\n")  # Add a new line in log to start run
 
@@ -75,7 +87,13 @@ class PetFinderSensor(Sensor):
         return newContent
 
     def get_all(self):
-        """ Request information on all animals available for adoption """
+        """
+        Request information on all animals available for adoption
+
+        Saves a copy of response.txt data to be used for cached requests
+
+        Returns a list of dictionaries for all pets
+        """
         if self._request_allowed():
             url = self.d['service_url']+"%s?key=%s&count=%d&id=%s&format=%s"
             try:
@@ -115,7 +133,11 @@ class PetFinderSensor(Sensor):
 
     @staticmethod
     def _create_record(d):
-        """ Create a list of dictionaries with details about each pet available from the shelter """
+        """
+        Create a list of dictionaries with details about each pet available from the shelter
+
+        Returns a dictionary list of pets with selected fields
+        """
         record = []
         for pet in range(len(d['petfinder']['pets']['pet'])):
             for photo in range(len(d['petfinder']['pets']['pet'][pet]['media']['photos']['photo'])):

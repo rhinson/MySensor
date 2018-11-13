@@ -14,6 +14,9 @@ when asked, but not more frequently than once per ten seconds.
 To provide a list of pets, even after a restart (with downtime of less than 10 secs) or during request within  
 the 10 second window, the processed webservice data gets cached as a text file.
 
+A **log** directory needs to be created for proper logging, it will be created automatically 
+if not manually created.
+
 Data is returned as a list of dictionaries with each pet contained within their own dictionary.
 
 Data Returned per pet is:
@@ -25,3 +28,4 @@ Data Returned per pet is:
 * pet_update
 * pet_description
 * pet_photo
+

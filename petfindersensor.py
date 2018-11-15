@@ -3,7 +3,7 @@ A Sensor to retrieve a list of animals available for adoption at
 the El Cajon Animal Shelter using the PetFinder API
 """
 
-__version__ = "1.0"
+__version__ = "1.1"
 __author__ = "Roger Hinson"
 __email__ = "roger.hinson@gmail.com"
 
@@ -26,7 +26,7 @@ class PetFinderSensor(Sensor):
 
     # Create the logs directory if it doesn't already exist
     try:
-        os.makedirs(os.path.join(os.getcwd(), __LOG_DIRECTORY))
+        os.makedirs(os.path.join(os.path.dirname(__file__), __LOG_DIRECTORY))
     except OSError as e:
         if e.errno != errno.EEXIST:
             print("Error is: " + str(e))
@@ -34,7 +34,7 @@ class PetFinderSensor(Sensor):
     # Create standard logging entries
     logging.basicConfig(
         level=logging.INFO,
-        filename=os.path.join(os.getcwd(), __LOG_DIRECTORY, __LOG_FILENAME),
+        filename=os.path.join(os.path.dirname(__file__), __LOG_DIRECTORY, __LOG_FILENAME),
         filemode='a',
         format='%(asctime)s - %(lineno)d - %(levelname)s - %(message)s')
 
@@ -43,7 +43,7 @@ class PetFinderSensor(Sensor):
     def __init__(self):
         """ Create new PetFinderSensor object and read sensor settings from config file """
         try:
-            with open(PetFinderSensor.__CONFIG_FILE) as json_text:
+            with open(os.path.join(os.path.dirname(__file__)) + "/" + PetFinderSensor.__CONFIG_FILE) as json_text:
                 self.d = json.load(json_text)
             logging.info("This sensor just woke up .. ready to call " + self.d['service_url'])
         except (Exception, OSError, ValueError) as e:
@@ -61,7 +61,7 @@ class PetFinderSensor(Sensor):
         if self._request_allowed():
             has_update = self.get_all()
             for pet in has_update:
-                if datetime.strptime(pet['pet_update'], "%Y-%m-%d"'T'"%H:%M:%S"'Z') > datetime.fromtimestamp(self.d['last_has_update']):
+                if datetime.strptime(pet['k'], "%Y-%m-%d"'T'"%H:%M:%S"'Z') > datetime.fromtimestamp(self.d['last_has_update']):
                     update_available = 1
                     break
             logging.info("Updates are available")
@@ -80,7 +80,7 @@ class PetFinderSensor(Sensor):
         if self._request_allowed():
             content = self.get_all()  # Returns all pets with only the data we're looking for
             for pet in content:
-                if datetime.strptime(pet['pet_update'], "%Y-%m-%d"'T'"%H:%M:%S"'Z') > datetime.fromtimestamp(self.d['last_has_update']):
+                if datetime.strptime(pet['k'], "%Y-%m-%d"'T'"%H:%M:%S"'Z') > datetime.fromtimestamp(self.d['last_has_update']):
                     newContent.append(pet)
         self.d['last_has_update'] = int(time.time())
         self._save_settings()  # Saves that a request has been made to the service
@@ -115,7 +115,7 @@ class PetFinderSensor(Sensor):
                 return self._create_record(json.loads(response))
             if response is not None and response.status_code == 200:
                 try:
-                    with open(PetFinderSensor.__SAVED_RECORDS, 'w') as backup:
+                    with open(os.path.join(os.path.dirname(__file__)) + "/" + PetFinderSensor.__SAVED_RECORDS, 'w') as backup:
                         backup.write(response.text)
                         logging.info("Saved response from %s" % (self.d['service_url']))
                 except (Exception, OSError, ValueError) as e:
@@ -144,14 +144,26 @@ class PetFinderSensor(Sensor):
                 if d['petfinder']['pets']['pet'][pet]['media']['photos']['photo'][photo]['@size'] == 'x':
                     use_this_photo = d['petfinder']['pets']['pet'][pet]['media']['photos']['photo'][photo]['$t']
                     break
-            record.append({'pet_name': d['petfinder']['pets']['pet'][pet]['name']['$t'],
+            if 1 == len(d['petfinder']['pets']['pet'][pet]['breeds']['breed']):
+                breed = d['petfinder']['pets']['pet'][pet]['breeds']['breed']['$t']
+            else:
+                for breeds in range(len(d['petfinder']['pets']['pet'][pet]['breeds']['breed'])):
+                    if breeds == 0:
+                        breed = d['petfinder']['pets']['pet'][pet]['breeds']['breed'][breeds]['$t']
+                    else:
+                        breed = breed + "/" + d['petfinder']['pets']['pet'][pet]['breeds']['breed'][breeds]['$t']
+                    if (breeds > 0) and breed == len(d['petfinder']['pets']['pet'][pet]['breeds']['breed']) - 1:
+                        breed = breed + " Mix"
+            summary = d['petfinder']['pets']['pet'][pet]['age']['$t'] + " " + \
+                      d['petfinder']['pets']['pet'][pet]['sex']['$t'] + " " + \
+                      d['petfinder']['pets']['pet'][pet]['animal']['$t'] + " " + \
+                      breed
+            record.append({'caption': d['petfinder']['pets']['pet'][pet]['name']['$t'],
                            'pet_id': d['petfinder']['pets']['pet'][pet]['id']['$t'],
-                           'pet_age': d['petfinder']['pets']['pet'][pet]['age']['$t'],
-                           'pet_sex': d['petfinder']['pets']['pet'][pet]['sex']['$t'],
-                           'pet_type': d['petfinder']['pets']['pet'][pet]['animal']['$t'],
-                           'pet_update': d['petfinder']['pets']['pet'][pet]['lastUpdate']['$t'],
-                           'pet_description': d['petfinder']['pets']['pet'][pet]['description']['$t'],
-                           'pet_photo': use_this_photo
+                           'k': d['petfinder']['pets']['pet'][pet]['lastUpdate']['$t'],
+                           'story': d['petfinder']['pets']['pet'][pet]['description']['$t'],
+                           'summary': summary,
+                           'img': use_this_photo
                            })
         return record
 
@@ -169,7 +181,7 @@ class PetFinderSensor(Sensor):
             logging.warning("Unable to save JSON settings : " + str(e))
 
     def _read_saved_data(self):
-        # Read saved reponse.text data from saved file in case URL can't be accessed
+        # Read saved response.text data from saved file in case URL can't be accessed
         try:
             with open(PetFinderSensor.__SAVED_RECORDS) as saved_data:
                 response = saved_data.read()

@@ -164,7 +164,7 @@ class PetFinderSensor(Sensor):
                       breed + "\n" + \
                       "PetFinder ID: " + d['petfinder']['pets']['pet'][pet]['id']['$t']
             # Make all UPPERCASE words BOLD with markdown, word is two or more adjacent UPPERCASE characters
-            story = re.sub(r'\b([A-Z][A-Z]+)\b', r' \*\*\1\*\* ', d['petfinder']['pets']['pet'][pet]['description']['$t'])
+            story = re.sub(r'\b([A-Z][A-Z]+)\b', r'**\1**', d['petfinder']['pets']['pet'][pet]['description']['$t'])
             record.append({'k': d['petfinder']['pets']['pet'][pet]['lastUpdate']['$t'],
                            'caption': d['petfinder']['pets']['pet'][pet]['name']['$t'],
                            'summary': summary,
@@ -174,7 +174,7 @@ class PetFinderSensor(Sensor):
         return record
 
     def _request_allowed(self):
-        # This use to capture the real allowance of 10,000 times per day
+        # This used to capture the real allowance of 10,000 times per day
         # Simplified to new variation for easier grading  :)
         return not self.d['offline_mode'] and (int(time.time()) - self.d['last_get_all']) > self.d['update_frequency']
 

@@ -14,6 +14,7 @@ import time
 import requests
 import logging
 import errno
+import re
 from datetime import datetime
 
 
@@ -140,10 +141,12 @@ class PetFinderSensor(Sensor):
         """
         record = []
         for pet in range(len(d['petfinder']['pets']['pet'])):
+            # Find large sized photo and just use the first one
             for photo in range(len(d['petfinder']['pets']['pet'][pet]['media']['photos']['photo'])):
                 if d['petfinder']['pets']['pet'][pet]['media']['photos']['photo'][photo]['@size'] == 'x':
                     use_this_photo = d['petfinder']['pets']['pet'][pet]['media']['photos']['photo'][photo]['$t']
                     break
+            # The JSON format is different if there's more than one breed type
             if 1 == len(d['petfinder']['pets']['pet'][pet]['breeds']['breed']):
                 breed = d['petfinder']['pets']['pet'][pet]['breeds']['breed']['$t']
             else:
@@ -151,18 +154,21 @@ class PetFinderSensor(Sensor):
                     if breeds == 0:
                         breed = d['petfinder']['pets']['pet'][pet]['breeds']['breed'][breeds]['$t']
                     else:
-                        breed = breed + "/" + d['petfinder']['pets']['pet'][pet]['breeds']['breed'][breeds]['$t']
-                    if (breeds > 0) and breed == len(d['petfinder']['pets']['pet'][pet]['breeds']['breed']) - 1:
+                        breed = breed + " / " + d['petfinder']['pets']['pet'][pet]['breeds']['breed'][breeds]['$t']
+                    if (breeds > 0) and breeds == len(d['petfinder']['pets']['pet'][pet]['breeds']['breed']) - 1:
                         breed = breed + " Mix"
+            # Create a summary with some pet attributes
             summary = d['petfinder']['pets']['pet'][pet]['age']['$t'] + " " + \
                       d['petfinder']['pets']['pet'][pet]['sex']['$t'] + " " + \
                       d['petfinder']['pets']['pet'][pet]['animal']['$t'] + " " + \
-                      breed
-            record.append({'caption': d['petfinder']['pets']['pet'][pet]['name']['$t'],
-                           'pet_id': d['petfinder']['pets']['pet'][pet]['id']['$t'],
-                           'k': d['petfinder']['pets']['pet'][pet]['lastUpdate']['$t'],
-                           'story': d['petfinder']['pets']['pet'][pet]['description']['$t'],
+                      breed + "\n" + \
+                      "PetFinder ID: " + d['petfinder']['pets']['pet'][pet]['id']['$t']
+            # Make all UPPERCASE words BOLD with markdown, word is two or more adjacent UPPERCASE characters
+            story = re.sub(r'\b([A-Z][A-Z]+)\b', r' \*\*\1\*\* ', d['petfinder']['pets']['pet'][pet]['description']['$t'])
+            record.append({'k': d['petfinder']['pets']['pet'][pet]['lastUpdate']['$t'],
+                           'caption': d['petfinder']['pets']['pet'][pet]['name']['$t'],
                            'summary': summary,
+                           'story': story,
                            'img': use_this_photo
                            })
         return record

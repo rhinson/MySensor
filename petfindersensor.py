@@ -3,7 +3,7 @@ A Sensor to retrieve a list of animals available for adoption at
 the El Cajon Animal Shelter using the PetFinder API
 """
 
-__version__ = "1.1"
+__version__ = "1.2"
 __author__ = "Roger Hinson"
 __email__ = "roger.hinson@gmail.com"
 
@@ -61,12 +61,14 @@ class PetFinderSensor(Sensor):
         update_available = 0
         if self._request_allowed():
             has_update = self.get_all()
-            for pet in has_update:
-                if datetime.strptime(pet['k'], "%Y-%m-%d"'T'"%H:%M:%S"'Z') > datetime.fromtimestamp(self.d['last_has_update']):
+            for update_pet in has_update:
+                if datetime.strptime(update_pet['k'], "%Y-%m-%d"'T'"%H:%M:%S"'Z') > datetime.fromtimestamp(self.d['last_has_update']):
                     update_available = 1
-                    break
-            logging.info("Updates are available")
-            return update_available
+                    logging.info("Updates are available")
+                    return update_available
+            if update_available == 0:
+                logging.info("Updates are not available")
+                return 0
         else:
             return 0
 
@@ -83,8 +85,11 @@ class PetFinderSensor(Sensor):
             for pet in content:
                 if datetime.strptime(pet['k'], "%Y-%m-%d"'T'"%H:%M:%S"'Z') > datetime.fromtimestamp(self.d['last_has_update']):
                     newContent.append(pet)
-        self.d['last_has_update'] = int(time.time())
-        self._save_settings()  # Saves that a request has been made to the service
+            self.d['last_has_update'] = int(time.time())
+            self._save_settings()  # Saves that a request has been made to the service
+            logging.info("Saved last_has_update from get_content")
+        else:
+            logging.info("get_content did not allow _request_allowed")
         return newContent
 
     def get_all(self):
@@ -164,17 +169,19 @@ class PetFinderSensor(Sensor):
                       breed + "\n" + \
                       "PetFinder ID: " + d['petfinder']['pets']['pet'][pet]['id']['$t']
             # Make all UPPERCASE words BOLD with markdown, word is two or more adjacent UPPERCASE characters
-            story = re.sub(r'\b([A-Z][A-Z]+)\b', r'**\1**', d['petfinder']['pets']['pet'][pet]['description']['$t'])
+            story = re.sub(r'\b([A-Z][A-Z]+)\b', r'**\1**',
+                           d['petfinder']['pets']['pet'][pet]['description']['$t'])
             record.append({'k': d['petfinder']['pets']['pet'][pet]['lastUpdate']['$t'],
                            'caption': d['petfinder']['pets']['pet'][pet]['name']['$t'],
                            'summary': summary,
                            'story': story,
                            'img': use_this_photo
-                           })
+                          })
+        logging.info("Completed _create_record")
         return record
 
     def _request_allowed(self):
-        # This used to capture the real allowance of 10,000 times per day
+        # This use to capture the real allowance of 10,000 times per day
         # Simplified to new variation for easier grading  :)
         return not self.d['offline_mode'] and (int(time.time()) - self.d['last_get_all']) > self.d['update_frequency']
 

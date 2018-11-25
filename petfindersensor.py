@@ -1,6 +1,6 @@
 """
 A Sensor to retrieve a list of animals available for adoption at
-the El Cajon Animal Shelter using the PetFinder API
+the El Cajon Animal Shelter as a list of pet dictionaries using the PetFinder API
 """
 
 __version__ = "1.1"
@@ -28,6 +28,9 @@ except OSError as e:
         print("Error is: " + str(e))
 
 # Create standard logging entries
+# info for status messages
+# warning for errors that will cause the usage of cached data
+# critical for errors that prevent the running of the sensor
 logging.basicConfig(
     level=logging.INFO,
     filename=os.path.join(os.path.dirname(__file__), __LOG_DIRECTORY, __LOG_FILENAME),
@@ -36,6 +39,11 @@ logging.basicConfig(
 
 
 class PetFinderSensor(SensorX):
+    """
+    Uses API from petfinder.com to create a list of dictionaries for each pet available for adoption
+
+    Will used cached data if petfinder.com is not available, or returns an invalid response
+    """
 
     logging.info("\n")  # Add a new line in log to start run
 
@@ -141,7 +149,18 @@ class PetFinderSensor(SensorX):
         """
         Create a list of dictionaries with details about each pet available from the shelter
 
-        Returns a dictionary list of pets with selected fields
+        Returns a dictionary list of pets with selected fields of:
+            k -- lastUpdate of Pet within PetFinder
+
+            caption -- name of Pet
+
+            summary -- Age, Sex, Pet Type (Dog, Cat, etc), Breed, PetFinderID
+
+            story -- description of Pet
+
+            img -- large picture of Pet
+
+            origin -- location on PetFinder website to see Pet
         """
         record = []
         for pet in range(len(d['petfinder']['pets']['pet'])):

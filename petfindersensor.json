@@ -5,8 +5,8 @@
   "return_count": 50,
   "shelter_id": "CA141",
   "format": "json",
-  "offline_mode": false,
-  "update_frequency": 10,
-  "last_get_all": 1542094086,
-  "last_has_update": 1542092592
+  "offline": false,
+  "request_delta": 10,
+  "last_used": 1543164639,
+  "last_has_update": 1543164639
 }
